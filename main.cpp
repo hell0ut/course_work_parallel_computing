@@ -4,6 +4,9 @@
 #include <thread>
 #include <filesystem>
 #include <mutex>
+#include <istream>
+#include <atomic>
+#include <string>
 
 const int NUMBER_OF_THREADS = 8;
 const int NUMBER_OF_FILES = 2000;
@@ -101,7 +104,6 @@ struct BSTNode{
 
 };
 
-
 class BSTSet{
 
 private:
@@ -144,12 +146,13 @@ public:
 
 };
 
+
 struct LinkedListNode{
-    int key;
+    std::string key;
     BSTSet* values;
     LinkedListNode* next;
 
-    LinkedListNode(int _key,BSTSet* _values,LinkedListNode* _next){
+    LinkedListNode(const std::string &_key,BSTSet* _values,LinkedListNode* _next){
     key=_key;
     values=_values;
     next=_next;
@@ -160,7 +163,7 @@ class LinkedList{
 private:
     LinkedListNode* head;
 
-    LinkedListNode* insert(LinkedListNode* cur,int key,int value){
+    LinkedListNode* insert(LinkedListNode* cur,const std::string& key,int value){
         if (cur == nullptr) {
             cur = new LinkedListNode(key, new BSTSet, nullptr);
             cur->values->Insert(value);
@@ -186,7 +189,7 @@ private:
 public:
     LinkedList():head(nullptr) {}
 
-    void Insert(int key,int value){
+    void Insert(const std::string &key,int value){
         head = insert(head,key,value);
     }
 
@@ -197,6 +200,30 @@ public:
 };
 
 
+class ConcurrentHashTable{
+private:
+    int SIZE;
+    std::atomic<int> FILL_FACTOR;
+    std::vector<LinkedList> HashTable;
+    std::vector<std::mutex> locks;
+
+    static int eval_hash(){
+
+    }
+
+
+public:
+    ConcurrentHashTable(int size){
+
+    }
+
+    void insert(int key,int value){
+
+    }
+
+
+};
+
 int main(){
     //ThreadStorage threadStorage(NUMBER_OF_THREADS);
     //ParallelFileProcessor parallelFileProcessor(threadStorage);
@@ -204,19 +231,19 @@ int main(){
 
     LinkedList list;
 
-    list.Insert(0,1);
-    list.Insert(0,2);
-    list.Insert(0,3);
-    list.Insert(0,1);
+    list.Insert("4",1);
+    list.Insert("4",2);
+    list.Insert("4",3);
+    list.Insert("4",1);
 
 
 
-    list.Insert(1,3);
-    list.Insert(1,4);
-    list.Insert(1,3);
+    list.Insert("1",3);
+    list.Insert("1",4);
+    list.Insert("1",3);
 
-    list.Insert(2,22);
-    list.Insert(2,23);
+    list.Insert("2",22);
+    list.Insert("2",23);
     list.Print();
 /*    0 : 1 2 3
     1 : 3 4
