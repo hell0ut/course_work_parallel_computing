@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 #include <map>
 #include <thread>
@@ -9,7 +10,7 @@
 const int NUMBER_OF_THREADS = 8;
 const int NUMBER_OF_FILES = 2000;
 
-
+std::string CO = "";
 std::mutex console;
 
 
@@ -84,8 +85,16 @@ public:
 
     }
 
+    static void test_f(std::vector<std::string> &file_paths,int bd_low,int bd_high){
+        console.lock();
+        std::cout<<"First element " << file_paths[bd_low] << " Last element " << file_paths[bd_high-1]<< std::endl;
+        console.unlock();
+    }
+
 
 };
+
+
 
 
 struct BSTNode{
@@ -105,7 +114,7 @@ private:
     void inOrder(BSTNode* cur){
         if (cur!= nullptr){
             inOrder(cur->left);
-            std::cout<<cur->data<<" ";
+            CO+=std::to_string(cur->data)+" ";
             inOrder(cur->right);
         }
     };
@@ -137,27 +146,82 @@ public:
 
 };
 
-void test_f(std::vector<std::string> &file_paths,int bd_low,int bd_high){
-    console.lock();
-    std::cout<<"First element " << file_paths[bd_low] << " Last element " << file_paths[bd_high-1]<< std::endl;
-    console.unlock();
-}
+struct LinkedListNode{
+    int key;
+    BSTSet* values;
+    LinkedListNode* next;
+
+    LinkedListNode(int _key,BSTSet* _values,LinkedListNode* _next):
+    key(_key),
+    values(_values),
+    next(_next)
+    {};
+};
+
+class LinkedList{
+private:
+    LinkedListNode* head= nullptr;
+
+    void insert(LinkedListNode* &cur,int key,int value){
+        if (cur== nullptr){
+            BSTSet set;
+            set.Insert(value);
+            cur = new LinkedListNode(key,&set,nullptr);
+        }
+        else if(key==cur->key){
+            cur->values->Insert(value);
+        }
+        else{
+            insert(cur->next,key,value);
+        }
+
+    }
+
+    void print(LinkedListNode* cur){
+        if (cur!= nullptr){
+            CO+=std::to_string(cur->key)+" ";
+            cur->values->InOrderTraversalPrint();
+            CO+="\n";
+            print(cur->next);
+        }
+    }
+
+public:
+    LinkedList(){
+
+    }
+
+    void Insert(int key,int value){
+        insert(head,key,value);
+    }
+
+    void Print(){
+        print(head);
+    }
+
+};
 
 
 int main(){
     //ThreadStorage threadStorage(NUMBER_OF_THREADS);
     //ParallelFileProcessor parallelFileProcessor(threadStorage);
     //parallelFileProcessor.apply_function_to_dir_files_parallel(test_f);
-    BSTSet set;
-    set.Insert(3);
-    set.Insert(7);
-    set.Insert(4);
-    set.Insert(2);
-    set.Insert(9);
-    set.Insert(3);
-    set.Insert(5);
-    set.Insert(4);
-    set.InOrderTraversalPrint();//2 3 4 5 7 9
+    LinkedList list;
+
+    list.Insert(0,1);
+    list.Insert(0,2);
+    list.Insert(0,3);
+    list.Insert(0,1);
+
+    list.Insert(1,3);
+    list.Insert(1,4);
+    list.Insert(1,3);
+
+    list.Print();
+    std::cout<<CO;
+
+    return 1;
+
 
 
 }
