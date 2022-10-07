@@ -7,6 +7,7 @@
 #include <istream>
 #include <atomic>
 #include <string>
+#include <cmath>
 
 const int NUMBER_OF_THREADS = 8;
 const int NUMBER_OF_FILES = 2000;
@@ -107,8 +108,6 @@ struct BSTNode{
 class BSTSet{
 
 private:
-    BSTNode *root = nullptr;
-
     void inOrder(BSTNode* cur){
         if(cur == nullptr)
             return;
@@ -121,6 +120,7 @@ private:
     BSTNode* insert(BSTNode* cur,int data){
         if(cur==nullptr){
             cur = new BSTNode(data, nullptr, nullptr);
+            ++cardinality;
         }
         else if (data>cur->data){
             cur->right= insert(cur->right,data);
@@ -132,9 +132,10 @@ private:
 
     };
 public:
-    BSTSet(){
+    BSTNode *root;
+    int cardinality;
 
-    };
+    BSTSet():root(nullptr),cardinality(0){};
 
     void InOrderTraversalPrint(){
         inOrder(root);
@@ -202,23 +203,64 @@ public:
 
 class ConcurrentHashTable{
 private:
+    const int PRIME_CONST = 31;
     int SIZE;
+    float MAX_FILL_FACTOR;
     std::atomic<int> FILL_FACTOR;
     std::vector<LinkedList> HashTable;
     std::vector<std::mutex> locks;
+    BSTSet filled_indexes;
+    std::mutex filled_indexes_lock;
 
-    static int eval_hash(){
+    int LOCK_STEP;
 
+    int eval_hash(const std::string &word) {
+        int hashVal = 0;
+        for(int i = 0;i<word.size();i++) {
+            hashVal += word[i] * pow(PRIME_CONST, i);
+        }
+        return hashVal%SIZE;
+    }
+
+    void inOrderPrint(BSTNode* cur) {
+        if (cur == nullptr)
+            return;
+        inOrderPrint(cur->left);
+        HashTable[cur->data].Print();
+        inOrderPrint(cur->right);
     }
 
 
 public:
-    ConcurrentHashTable(int size){
+    ConcurrentHashTable(int size,float max_fill_factor,int locks_size):
+        HashTable(std::vector<LinkedList>(size)),
+        SIZE(size),MAX_FILL_FACTOR(max_fill_factor)
+    {
+            if (locks_size>size/ 2){
+                LOCK_STEP = 2;
+                locks=std::vector<std::mutex>(size/2);
+            }
+            else{
+                LOCK_STEP = size/locks_size;
+                locks = std::vector<std::mutex>(locks_size);
 
+            }
+        };
+
+    void Insert(const std::string  &key,int value){
+        int index = eval_hash(key);
+        int lock_ind = index/LOCK_STEP;
+        filled_indexes_lock.lock();
+        filled_indexes.Insert(index);
+        FILL_FACTOR = filled_indexes.cardinality/SIZE;
+        filled_indexes_lock.unlock();
+        locks[lock_ind].lock();
+        HashTable[index].Insert(key,value);
+        locks[lock_ind].unlock();
     }
 
-    void insert(int key,int value){
-
+    void Print(){
+        inOrderPrint(filled_indexes.root);
     }
 
 
@@ -227,27 +269,21 @@ public:
 int main(){
     //ThreadStorage threadStorage(NUMBER_OF_THREADS);
     //ParallelFileProcessor parallelFileProcessor(threadStorage);
-    //parallelFileProcessor.apply_function_to_dir_files_parallel(test_f);
+    //parallelFileProcessor.apply_function_to_dir_files_parallel(ParallelFileProcessor::test_f);
+    ConcurrentHashTable hashTable(200,0.75,50);
 
-    LinkedList list;
+    hashTable.Insert("hello",1);
+    hashTable.Insert("hello",3);
+    hashTable.Insert("hello",6);
+    hashTable.Insert("hello",2);
+    hashTable.Insert("hi",1);
+    hashTable.Insert("hi",2);
+    hashTable.Insert("hi",3);
+    hashTable.Insert("hi",6);
+    hashTable.Insert("hi",4);
 
-    list.Insert("4",1);
-    list.Insert("4",2);
-    list.Insert("4",3);
-    list.Insert("4",1);
+    hashTable.Print();
 
-
-
-    list.Insert("1",3);
-    list.Insert("1",4);
-    list.Insert("1",3);
-
-    list.Insert("2",22);
-    list.Insert("2",23);
-    list.Print();
-/*    0 : 1 2 3
-    1 : 3 4
-    2 : 22 23*/
 
     return 1;
 
