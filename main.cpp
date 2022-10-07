@@ -88,6 +88,55 @@ public:
 };
 
 
+struct BSTNode{
+    int data=-1;
+    BSTNode* left= nullptr;
+    BSTNode* right= nullptr;
+
+    BSTNode(int data_,BSTNode* left_,BSTNode* right_) : data(data_),left(left_),right(right_){};
+
+};
+
+class BSTSet{
+
+private:
+    BSTNode *root = nullptr;
+
+    void inOrder(BSTNode* cur){
+        if (cur!= nullptr){
+            inOrder(cur->left);
+            std::cout<<cur->data<<" ";
+            inOrder(cur->right);
+        }
+    };
+
+    void insert(BSTNode* &cur,int data){
+        if(cur==nullptr){
+            cur = new BSTNode(data, nullptr, nullptr);
+        }
+        else if (data>cur->data){
+            insert(cur->right,data);
+        }
+        else if (data<cur->data) {
+            insert(cur->left, data);
+        }
+
+    };
+public:
+    BSTSet(){
+
+    };
+
+    void InOrderTraversalPrint(){
+        inOrder(root);
+    }
+
+    void Insert(int value){
+        insert(root,value);
+    }
+
+};
+
 void test_f(std::vector<std::string> &file_paths,int bd_low,int bd_high){
     console.lock();
     std::cout<<"First element " << file_paths[bd_low] << " Last element " << file_paths[bd_high-1]<< std::endl;
@@ -96,16 +145,19 @@ void test_f(std::vector<std::string> &file_paths,int bd_low,int bd_high){
 
 
 int main(){
-    ThreadStorage threadStorage(NUMBER_OF_THREADS);
-    ParallelFileProcessor parallelFileProcessor(threadStorage);
-    parallelFileProcessor.apply_function_to_dir_files_parallel(test_f);
-
-
-
-
-
-
-
+    //ThreadStorage threadStorage(NUMBER_OF_THREADS);
+    //ParallelFileProcessor parallelFileProcessor(threadStorage);
+    //parallelFileProcessor.apply_function_to_dir_files_parallel(test_f);
+    BSTSet set;
+    set.Insert(3);
+    set.Insert(7);
+    set.Insert(4);
+    set.Insert(2);
+    set.Insert(9);
+    set.Insert(3);
+    set.Insert(5);
+    set.Insert(4);
+    set.InOrderTraversalPrint();//2 3 4 5 7 9
 
 
 }
