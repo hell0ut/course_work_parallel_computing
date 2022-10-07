@@ -87,9 +87,9 @@ public:
     }
 
     static void test_f(std::vector<std::string> &file_paths,int bd_low,int bd_high){
-        console.lock();
-        std::cout<<"First element " << file_paths[bd_low] << " Last element " << file_paths[bd_high-1]<< std::endl;
-        console.unlock();
+        //console.lock();
+        //std::cout<<"First element " << file_paths[bd_low] << " Last element " << file_paths[bd_high-1]<< std::endl;
+        //console.unlock();
     }
 
 
@@ -187,6 +187,16 @@ private:
         }
     }
 
+    BSTSet* find(LinkedListNode* cur,const std::string &key){
+        if (cur!= nullptr){
+            if (cur->key==key){
+            return cur->values;
+            }
+        }
+        return nullptr;
+    }
+
+
 public:
     LinkedList():head(nullptr) {}
 
@@ -196,6 +206,10 @@ public:
 
     void Print(){
         print(head);
+    }
+
+    BSTSet* Find(const std::string &key){
+        return find(head,key);
     }
 
 };
@@ -259,6 +273,11 @@ public:
         locks[lock_ind].unlock();
     }
 
+    BSTSet* Find(const std::string key){
+        int index = eval_hash(key);
+        return HashTable[index].Find(key);
+    }
+
     void Print(){
         inOrderPrint(filled_indexes.root);
     }
@@ -271,18 +290,14 @@ int main(){
     //ParallelFileProcessor parallelFileProcessor(threadStorage);
     //parallelFileProcessor.apply_function_to_dir_files_parallel(ParallelFileProcessor::test_f);
     ConcurrentHashTable hashTable(200,0.75,50);
-
-    hashTable.Insert("hello",1);
-    hashTable.Insert("hello",3);
-    hashTable.Insert("hello",6);
-    hashTable.Insert("hello",2);
-    hashTable.Insert("hi",1);
-    hashTable.Insert("hi",2);
-    hashTable.Insert("hi",3);
-    hashTable.Insert("hi",6);
-    hashTable.Insert("hi",4);
-
-    hashTable.Print();
+    hashTable.Insert("Hi",0);
+    hashTable.Insert("Hi",1);
+    auto result = hashTable.Find("Hi");
+    result->InOrderTraversalPrint();
+    result = hashTable.Find("what");
+    bool res = result== nullptr;
+    std::cout<<res;
+    
 
 
     return 1;
