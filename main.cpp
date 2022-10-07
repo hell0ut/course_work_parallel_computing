@@ -1,6 +1,4 @@
 #include <iostream>
-#include <string>
-#include <utility>
 #include <vector>
 #include <map>
 #include <thread>
@@ -10,7 +8,6 @@
 const int NUMBER_OF_THREADS = 8;
 const int NUMBER_OF_FILES = 2000;
 
-std::string CO = "";
 std::mutex console;
 
 
@@ -95,16 +92,15 @@ public:
 };
 
 
-
-
 struct BSTNode{
-    int data=-1;
-    BSTNode* left= nullptr;
-    BSTNode* right= nullptr;
+    int data;
+    BSTNode* left;
+    BSTNode* right;
 
-    BSTNode(int data_,BSTNode* left_,BSTNode* right_) : data(data_),left(left_),right(right_){};
+    BSTNode(int data_,BSTNode* left_,BSTNode* right_) :data(data_),left(left_),right(right_){}
 
 };
+
 
 class BSTSet{
 
@@ -112,23 +108,25 @@ private:
     BSTNode *root = nullptr;
 
     void inOrder(BSTNode* cur){
-        if (cur!= nullptr){
-            inOrder(cur->left);
-            CO+=std::to_string(cur->data)+" ";
-            inOrder(cur->right);
-        }
+        if(cur == nullptr)
+            return;
+        inOrder(cur->left);
+        std::cout<<cur->data<<" ";
+        inOrder(cur->right);
+
     };
 
-    void insert(BSTNode* &cur,int data){
+    BSTNode* insert(BSTNode* cur,int data){
         if(cur==nullptr){
             cur = new BSTNode(data, nullptr, nullptr);
         }
         else if (data>cur->data){
-            insert(cur->right,data);
+            cur->right= insert(cur->right,data);
         }
         else if (data<cur->data) {
-            insert(cur->left, data);
+            cur->left= insert(cur->left,data);
         }
+        return cur;
 
     };
 public:
@@ -141,7 +139,7 @@ public:
     }
 
     void Insert(int value){
-        insert(root,value);
+        root =insert(root,value);
     }
 
 };
@@ -151,48 +149,45 @@ struct LinkedListNode{
     BSTSet* values;
     LinkedListNode* next;
 
-    LinkedListNode(int _key,BSTSet* _values,LinkedListNode* _next):
-    key(_key),
-    values(_values),
-    next(_next)
-    {};
+    LinkedListNode(int _key,BSTSet* _values,LinkedListNode* _next){
+    key=_key;
+    values=_values;
+    next=_next;
+    };
 };
 
 class LinkedList{
 private:
-    LinkedListNode* head= nullptr;
+    LinkedListNode* head;
 
-    void insert(LinkedListNode* &cur,int key,int value){
-        if (cur== nullptr){
-            BSTSet set;
-            set.Insert(value);
-            cur = new LinkedListNode(key,&set,nullptr);
+    LinkedListNode* insert(LinkedListNode* cur,int key,int value){
+        if (cur == nullptr) {
+            cur = new LinkedListNode(key, new BSTSet, nullptr);
+            cur->values->Insert(value);
         }
         else if(key==cur->key){
             cur->values->Insert(value);
         }
         else{
-            insert(cur->next,key,value);
+            cur->next = insert(cur->next,key,value);
         }
-
+        return cur;
     }
 
     void print(LinkedListNode* cur){
         if (cur!= nullptr){
-            CO+=std::to_string(cur->key)+" ";
+            std::cout<<cur->key<<" : ";
             cur->values->InOrderTraversalPrint();
-            CO+="\n";
+            std::cout<<std::endl;
             print(cur->next);
         }
     }
 
 public:
-    LinkedList(){
-
-    }
+    LinkedList():head(nullptr) {}
 
     void Insert(int key,int value){
-        insert(head,key,value);
+        head = insert(head,key,value);
     }
 
     void Print(){
@@ -206,6 +201,7 @@ int main(){
     //ThreadStorage threadStorage(NUMBER_OF_THREADS);
     //ParallelFileProcessor parallelFileProcessor(threadStorage);
     //parallelFileProcessor.apply_function_to_dir_files_parallel(test_f);
+
     LinkedList list;
 
     list.Insert(0,1);
@@ -213,14 +209,23 @@ int main(){
     list.Insert(0,3);
     list.Insert(0,1);
 
+
+
     list.Insert(1,3);
     list.Insert(1,4);
     list.Insert(1,3);
 
+    list.Insert(2,22);
+    list.Insert(2,23);
     list.Print();
-    std::cout<<CO;
+/*    0 : 1 2 3
+    1 : 3 4
+    2 : 22 23*/
 
     return 1;
+
+
+
 
 
 
