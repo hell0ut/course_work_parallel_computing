@@ -10,7 +10,7 @@
 #include <cmath>
 #include <chrono>
 
-const int NUMBER_OF_THREADS = 6;
+const int NUMBER_OF_THREADS = 12;
 const int NUMBER_OF_FILES = 2000;
 
 std::mutex console;
@@ -199,10 +199,10 @@ public:
         filled_indexes.Insert(index);
         FILL_FACTOR = (float)filled_indexes.cardinality/(float)SIZE;
         number_of_words++;
-        if (number_of_words%10000==0){
+        //if (number_of_words%10000==0){
             //std::cout<<"NOF " << number_of_words<<std::endl;
-            std::cout<<"Fill factor is " << FILL_FACTOR<<" for "<<number_of_words<<" words"<<std::endl;
-        }
+           // std::cout<<"Fill factor is " << FILL_FAC  TOR<<" for "<<number_of_words<<" words"<<std::endl;
+        //}
         filled_indexes_lock.unlock();
         locks[lock_ind].lock();
         HashTable[index].Insert(key,value);
@@ -225,12 +225,19 @@ ConcurrentHashTable hashTable(20000,0.75,1000);
 
 class ParallelFileProcessor{
 private:
-    const std::filesystem::path p =std::filesystem::current_path();
-    const std::vector<std::string> dir_paths{p.string()+R"(\data\test\neg\)",
-                                             p.string()+R"(\data\test\pos\)",
-                                             p.string()+R"(\data\train\neg\)",
-                                             p.string()+R"(\data\train\pos\)",
-                                             p.string()+R"(\data\train\unsup\)"
+    const std::filesystem::path p =std::filesystem::current_path()/std::filesystem::path("data");
+    const std::filesystem::path train ="train";
+    const std::filesystem::path test ="test";
+    const std::filesystem::path neg = "neg";
+    const std::filesystem::path pos = "pos";
+    const std::filesystem::path unsup = "unsup";
+    const std::vector<std::filesystem::path> dir_paths
+    {
+        p/test/neg,
+        p/test/pos,
+        p/train/neg,
+        p/train/neg,
+        p/train/unsup
     };
 
     std::vector<std::string> files_paths;
