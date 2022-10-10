@@ -325,18 +325,16 @@ int shutdown_services(ADDRINFO* addrResult, SOCKET* ConnectSocket, std::string m
     return 1;
 }
 
-struct client {
+struct Client {
     int id;
     SOCKET socket = INVALID_SOCKET;
-    client( SOCKET sock, int id_) :id(id_), socket(sock) {};
+    Client(SOCKET sock, int id_) : id(id_), socket(sock) {};
 
 };
 
 struct iasa_request {
     std::string word;
-    int indexedView;
-    int maxNumberOffiles;
-
+    bool indexedView;
 };
 
 class IASA_REQUEST_DECODER {
@@ -346,29 +344,22 @@ public:
         std::string request_str(request_text);
         std::stringstream ssin(request_str);
         int i = 0;
-        while (ssin.good() && i < 3) {
+        while (ssin.good() && i < 2) {
             ssin >> arr[i];
             ++i;
         }
         iasa_request req;
-        req.method = arr[0];
-        if (req.method != "CONFIRM") {
-            req.arg1 = std::stoi(arr[1]);
-            if (req.method != "GET" && req.method != "DEL")
-                req.arg2 = std::stoi(arr[2]);
-        }
+        req.word = arr[0];
+        req.indexedView = bool(std::stoi(arr[1]));
         return req;
     }
 
-    static std::string request_to_char(iasa_request req) {
-        std::string request_text = req.method + " " + std::to_string(req.arg1) + " " + std::to_string(req.arg2);
+    static std::string request_to_char(const iasa_request& req) {
+        std::string request_text = req.word + " " + std::to_string(req.indexedView);
         return request_text;
     }
 
-private:
-    IASA_REQUEST_DECODER() {}
 };
-
 
 class InvertedIndexServer{
 private:
@@ -377,33 +368,39 @@ private:
     ADDRINFO hints;
     ADDRINFO* addrResult = nullptr;
 
+    std::string process_request(iasa_request req,Client& client,bool& close_connection){
+        if (req.word[0]=='0' && req.word.size()==1){
+            close_connection=true;
+        }
+        else{
+            return hashTable.Find(req.word,req.indexedView);
+        }
+    }
 
-    int speak_client(int client_id) {
-        char recvBuffer[512];
+    int speak_client(Client client) {
+        char recvBuffer[4096];
         bool close_connection = false;
         while (!close_connection) {
-            ZeroMemory(recvBuffer, 512);
-            int client_index = get_client_index_by_id(client_id);
-            result = recv(clients[client_index].socket, recvBuffer, 512, 0);
+            ZeroMemory(recvBuffer, 4096);
+            result = recv(client.socket, recvBuffer, 4096, 0);
 
             if (result > 0) {
                 console.lock();
-                std::cout << "Receieved data from client " << client_id << ":\n" << recvBuffer << std::endl;
+                std::cout << "Receieved data from Client " << client.id << ":\n" << recvBuffer << std::endl;
                 console.unlock();
                 iasa_request cur_req = IASA_REQUEST_DECODER::char_to_request(recvBuffer);
-                auto response = process_request(cur_req, client_index, close_connection);
+                auto response = process_request(cur_req, client, close_connection);
 
-                result = send(clients[client_index].socket, response.c_str(), (int) strlen(response.c_str()), 0);
+                result = send(client.socket, response.c_str(), (int) strlen(response.c_str()), 0);
                 console.lock();
-                std::cout << "Send data back to client" << client_id << ":\n" << response << std::endl;
+                std::cout << "Send data back to Client" << client.id << ":\n" << response << std::endl;
                 console.unlock();
                 if (result == SOCKET_ERROR)
-                    return shutdown_services(addrResult, &clients[client_index].socket,
+                    return shutdown_services(addrResult, &client.socket,
                                              "Sending data back failed, result = ", result);
                 if (close_connection) {
                     break;
                 }
-
             }
         }
     }
@@ -421,10 +418,9 @@ private:
                 ClientSocket = accept(ListenSocket, nullptr, nullptr);
                 if (ClientSocket == INVALID_SOCKET) return shutdown_services(addrResult, &ListenSocket, "Accepting socket failed, result = ", result);
             }
-            std::thread th;
-            client cur_client(ClientSocket,i);
-            std::thread thread(&InvertedIndexServer::speak_client, this, i);
-            thread.detach();
+            Client cur_client(ClientSocket, i);
+            std::thread th(&InvertedIndexServer::speak_client,this, cur_client);
+            th.detach();
             console.lock();
             std::cout << "Client connected" << std::endl;
             console.unlock();
