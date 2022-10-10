@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.23)
-project(course_work_parallel_computing)
+project(course_work_parallel_computing_server)
+project(course_work_parallel_computing_client)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(course_work_parallel_computing main.cpp)
+add_executable(course_work_parallel_computing_server main.cpp)
+add_executable(course_work_parallel_computing_client client.cpp)
+
