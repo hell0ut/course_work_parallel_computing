@@ -13,13 +13,10 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
-
 const int NUMBER_OF_FILES = 2000;
 int NUMBER_OF_THREADS = 12;
 #define prot IPPROTO_TCP;
 std::mutex console;
-
-
 std::vector<std::filesystem::path> files_paths;
 
 class ThreadStorage{
@@ -31,18 +28,15 @@ public:
 
 };
 
-
 struct BSTNode{
     int data;
     BSTNode* left;
     BSTNode* right;
 
     BSTNode(int data_,BSTNode* left_,BSTNode* right_) :data(data_),left(left_),right(right_){}
-
 };
 
 class BSTSet{
-
 private:
     void inOrder(BSTNode* cur){
         if(cur == nullptr)
@@ -69,7 +63,6 @@ private:
                     "\n";
         }
         inOrderString(cur->right,response,indexedView);
-
     };
 
     BSTNode* insert(BSTNode* cur,int data){
@@ -86,6 +79,7 @@ private:
         return cur;
 
     };
+
 public:
     BSTNode *root;
     int cardinality;
@@ -100,13 +94,11 @@ public:
         std::string response;
         inOrderString(root,response,IndexedView);
         return response;
-
     }
 
     void Insert(int value){
         root =insert(root,value);
     }
-
 };
 
 
@@ -158,7 +150,6 @@ private:
         return nullptr;
     }
 
-
 public:
     LinkedList():head(nullptr) {}
 
@@ -179,15 +170,9 @@ public:
 
 class ConcurrentHashTable{
 private:
-    const int PRIME_CONST = 3;
     int SIZE;
-    float MAX_FILL_FACTOR;
-    float FILL_FACTOR;
     std::vector<LinkedList> HashTable;
     std::vector<std::mutex> locks;
-    BSTSet filled_indexes;
-    std::mutex filled_indexes_lock;
-    std::atomic<int> number_of_words = 0;
 
     int LOCK_STEP;
 
@@ -209,10 +194,9 @@ private:
 
 
 public:
-
     ConcurrentHashTable(int size,float max_fill_factor,int locks_size):
         HashTable(std::vector<LinkedList>(size)),
-        SIZE(size),MAX_FILL_FACTOR(max_fill_factor)
+        SIZE(size)
     {
             if (locks_size>size/ 2){
                 LOCK_STEP = 2;
@@ -228,15 +212,6 @@ public:
     void Insert(const std::string  &key,int value){
         int index = abs(eval_hash(key));
         int lock_ind = index/LOCK_STEP;
-        filled_indexes_lock.lock();
-        filled_indexes.Insert(index);
-        FILL_FACTOR = (float)filled_indexes.cardinality/(float)SIZE;
-        number_of_words++;
-        //if (number_of_words%10000==0){
-            //std::cout<<"NOF " << number_of_words<<std::endl;
-           // std::cout<<"Fill factor is " << FILL_FAC  TOR<<" for "<<number_of_words<<" words"<<std::endl;
-        //}
-        filled_indexes_lock.unlock();
         locks[lock_ind].lock();
         HashTable[index].Insert(key,value);
         locks[lock_ind].unlock();
@@ -256,12 +231,6 @@ public:
         }
         return response;
     }
-
-    void Print(){
-        inOrderPrint(filled_indexes.root);
-    }
-
-
 };
 
 ConcurrentHashTable hashTable(20000,0.75,1000);
@@ -283,14 +252,12 @@ private:
         p/train/unsup
     };
 
-
     ThreadStorage &threadStorage;
 
     void generate_directories(){
         int i = 0;
         for (const auto& dir:dir_paths){
             for (const auto & entry : std::filesystem::directory_iterator(dir)){
-                //std::cout<<entry.path().string()<<std::endl;
                 files_paths[i]= entry.path();
                 i++;
             }
@@ -308,13 +275,10 @@ private:
             {
                 hashTable.Insert(word,i);
             }
-            //break;
-
         }
     }
 
     void apply_function_to_dir_files_parallel(void (*f)(int,int)){
-
         std::vector<int> boundaries;
         int step = NUMBER_OF_FILES/NUMBER_OF_THREADS;
         for(int i = 0;i<NUMBER_OF_THREADS;i++){
@@ -330,7 +294,6 @@ private:
         for(int i = 0;i<NUMBER_OF_THREADS;i++) {
             threadStorage.threads[i].join();
         }
-
     }
 
 
@@ -343,32 +306,17 @@ public:
         generate_directories();
     };
 
-    void print_directories(int number_of_rows){
-        int i = 0;
-        for (const std::filesystem::path& path: files_paths)
-        {
-            std::cout << path << std::endl;
-            i++;
-            if (i==number_of_rows){
-                break;
-            }
-        }
-    }
-
-
     void CreateInvertedIndex(){
         apply_function_to_dir_files_parallel(add_files_to_hashtable);
         std::cout<<"Inverted Index was created successfully"<<std::endl;
     }
-
 };
-
 
 int shutdown_services(ADDRINFO* addrResult, SOCKET* ConnectSocket, std::string message, int result) {
     console.lock();
     std::cout << message << " " << result << std::endl;
     console.unlock();
-    if (ConnectSocket != NULL) {
+    if (ConnectSocket != nullptr) {
         closesocket(*ConnectSocket);
         *ConnectSocket = INVALID_SOCKET;
     }
@@ -384,13 +332,50 @@ struct client {
 
 };
 
+struct iasa_request {
+    std::string word;
+    int indexedView;
+    int maxNumberOffiles;
+
+};
+
+class IASA_REQUEST_DECODER {
+public:
+    static iasa_request char_to_request(char* request_text) {
+        std::string arr[3];
+        std::string request_str(request_text);
+        std::stringstream ssin(request_str);
+        int i = 0;
+        while (ssin.good() && i < 3) {
+            ssin >> arr[i];
+            ++i;
+        }
+        iasa_request req;
+        req.method = arr[0];
+        if (req.method != "CONFIRM") {
+            req.arg1 = std::stoi(arr[1]);
+            if (req.method != "GET" && req.method != "DEL")
+                req.arg2 = std::stoi(arr[2]);
+        }
+        return req;
+    }
+
+    static std::string request_to_char(iasa_request req) {
+        std::string request_text = req.method + " " + std::to_string(req.arg1) + " " + std::to_string(req.arg2);
+        return request_text;
+    }
+
+private:
+    IASA_REQUEST_DECODER() {}
+};
+
+
 class InvertedIndexServer{
 private:
     SOCKET ListenSocket = INVALID_SOCKET;
     int result;
     ADDRINFO hints;
     ADDRINFO* addrResult = nullptr;
-
 
 
     int speak_client(int client_id) {
@@ -492,7 +477,6 @@ public:
 
         start_server();
 
-
     }
 };
 
@@ -500,7 +484,6 @@ public:
 int main(){
     InvertedIndexServer invertedIndexServer;
     invertedIndexServer.Run(6);
-
 
     return 1;
 

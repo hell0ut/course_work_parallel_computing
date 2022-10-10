@@ -1,7 +1,12 @@
 
 #include <iostream>
+#include <mutex>
+
+std::mutex console;
 
 int main(){
-    std::cout<<"Hello i m client";
+    console.lock();
+    console.unlock();
+    std::cout<<sizeof(console);
     return 0;
 }
