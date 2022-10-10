@@ -10,8 +10,9 @@
 #include <cmath>
 #include <chrono>
 
-const int NUMBER_OF_THREADS = 12;
+
 const int NUMBER_OF_FILES = 2000;
+int NUMBER_OF_THREADS = 12;
 
 std::mutex console;
 
@@ -290,7 +291,7 @@ private:
                 i++;
             }
         }
-        std::cout<<"Directories have been read successfully"<<std::endl;
+        //std::cout<<"Directories have been read successfully"<<std::endl;
     }
 
     static void add_files_to_hashtable(int bd_low,int bd_high){
@@ -355,28 +356,50 @@ public:
         apply_function_to_dir_files_parallel(add_files_to_hashtable);
     }
 
+};
 
+class InvertedIndexServer{
+public:
+    void Run(int number_of_threads){
+        NUMBER_OF_THREADS = number_of_threads;
+        ThreadStorage threadStorage(NUMBER_OF_THREADS);
+        ParallelFileProcessor parallelFileProcessor(threadStorage);
+        //count time
+        auto start = std::chrono::high_resolution_clock::now();
+        parallelFileProcessor.CreateInvertedIndex();
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds >(stop - start);
+
+        std::cout << "Time taken by function using " <<NUMBER_OF_THREADS <<" threads: "
+                  << duration.count() << " milliseconds" << std::endl;
+
+
+    }
+
+    void TestExecutionTimeDependOnThreads(int min,int max){
+        for(int i = min;i<=max;i++){
+            Run(i);
+        }
+
+
+
+    }
 
 
 };
 
-int main(){
-    ThreadStorage threadStorage(NUMBER_OF_THREADS);
-    ParallelFileProcessor parallelFileProcessor(threadStorage);
 
-    //count time
-    auto start = std::chrono::high_resolution_clock::now();
-    parallelFileProcessor.CreateInvertedIndex();
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds >(stop - start);
-    std::vector<std::string> words {"hello","finally","probably","myself","honor"};
-    std::cout << "Time taken by function using " <<NUMBER_OF_THREADS <<" threads: "
-         << duration.count() << " milliseconds" << std::endl;
+
+
+int main(){
+    InvertedIndexServer invertedIndexServer;
+    invertedIndexServer.TestExecutionTimeDependOnThreads(1,20);
 
     //check for words
-    for(const auto& w :words){
-        std::cout<<hashTable.Find(w, false);
-    }
+//    std::vector<std::string> words {"hello","finally","probably","myself","honor"};
+//    for(const auto& w :words){
+//        std::cout<<hashTable.Find(w, false);
+//    }
 
 
     return 1;
