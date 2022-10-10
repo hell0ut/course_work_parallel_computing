@@ -9,12 +9,16 @@
 #include <string>
 #include <cmath>
 #include <chrono>
+#include <Windows.h>
+#include <WinSock2.h>
+#include <WS2tcpip.h>
 
 
 const int NUMBER_OF_FILES = 2000;
 int NUMBER_OF_THREADS = 12;
-
+#define prot IPPROTO_TCP;
 std::mutex console;
+
 
 std::vector<std::filesystem::path> files_paths;
 
@@ -291,7 +295,7 @@ private:
                 i++;
             }
         }
-        //std::cout<<"Directories have been read successfully"<<std::endl;
+        std::cout<<"Directories have been read successfully"<<std::endl;
     }
 
     static void add_files_to_hashtable(int bd_low,int bd_high){
@@ -354,11 +358,124 @@ public:
 
     void CreateInvertedIndex(){
         apply_function_to_dir_files_parallel(add_files_to_hashtable);
+        std::cout<<"Inverted Index was created successfully"<<std::endl;
     }
 
 };
 
+
+int shutdown_services(ADDRINFO* addrResult, SOCKET* ConnectSocket, std::string message, int result) {
+    console.lock();
+    std::cout << message << " " << result << std::endl;
+    console.unlock();
+    if (ConnectSocket != NULL) {
+        closesocket(*ConnectSocket);
+        *ConnectSocket = INVALID_SOCKET;
+    }
+    freeaddrinfo(addrResult);
+    WSACleanup();
+    return 1;
+}
+
+struct client {
+    int id;
+    SOCKET socket = INVALID_SOCKET;
+    client( SOCKET sock, int id_) :id(id_), socket(sock) {};
+
+};
+
 class InvertedIndexServer{
+private:
+    SOCKET ListenSocket = INVALID_SOCKET;
+    int result;
+    ADDRINFO hints;
+    ADDRINFO* addrResult = nullptr;
+
+
+
+    int speak_client(int client_id) {
+        char recvBuffer[512];
+        bool close_connection = false;
+        while (!close_connection) {
+            ZeroMemory(recvBuffer, 512);
+            int client_index = get_client_index_by_id(client_id);
+            result = recv(clients[client_index].socket, recvBuffer, 512, 0);
+
+            if (result > 0) {
+                console.lock();
+                std::cout << "Receieved data from client " << client_id << ":\n" << recvBuffer << std::endl;
+                console.unlock();
+                iasa_request cur_req = IASA_REQUEST_DECODER::char_to_request(recvBuffer);
+                auto response = process_request(cur_req, client_index, close_connection);
+
+                result = send(clients[client_index].socket, response.c_str(), (int) strlen(response.c_str()), 0);
+                console.lock();
+                std::cout << "Send data back to client" << client_id << ":\n" << response << std::endl;
+                console.unlock();
+                if (result == SOCKET_ERROR)
+                    return shutdown_services(addrResult, &clients[client_index].socket,
+                                             "Sending data back failed, result = ", result);
+                if (close_connection) {
+                    break;
+                }
+
+            }
+        }
+    }
+
+    int listen_for_clients() {
+        int i = 0;
+
+        while (true) {
+            console.lock();
+            std::cout << "Server is waiting for connection" << std::endl;
+            console.unlock();
+            SOCKET ClientSocket = SOCKET_ERROR;
+            while (ClientSocket == SOCKET_ERROR)
+            {
+                ClientSocket = accept(ListenSocket, nullptr, nullptr);
+                if (ClientSocket == INVALID_SOCKET) return shutdown_services(addrResult, &ListenSocket, "Accepting socket failed, result = ", result);
+            }
+            std::thread th;
+            client cur_client(ClientSocket,i);
+            std::thread thread(&InvertedIndexServer::speak_client, this, i);
+            thread.detach();
+            console.lock();
+            std::cout << "Client connected" << std::endl;
+            console.unlock();
+            i++;
+
+        }
+    }
+
+
+    int start_server() {
+        WSADATA wsaData;
+        result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (result != 0) return shutdown_services(addrResult, nullptr, "WSAStartup failed, result = ", result);
+
+        ZeroMemory(&hints, sizeof(hints));
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = prot;
+        hints.ai_flags = AI_PASSIVE;
+
+        result = getaddrinfo(nullptr, "666", &hints, &addrResult);
+        if (result != 0) return shutdown_services(addrResult, nullptr, "getaddrinfo failed, result = ", result);
+
+        ListenSocket = socket(addrResult->ai_family, addrResult->ai_socktype, addrResult->ai_protocol);
+        if (ListenSocket == INVALID_SOCKET) return shutdown_services(addrResult, &ListenSocket, "Socket creation failed, result = ", result);
+
+        result = bind(ListenSocket, addrResult->ai_addr, (int)addrResult->ai_addrlen);
+        if (result == SOCKET_ERROR) return shutdown_services(addrResult, &ListenSocket, "Binding socket failed, result = ", result);
+
+        result = listen(ListenSocket, SOMAXCONN);
+        if (result == SOCKET_ERROR) return shutdown_services(addrResult, &ListenSocket, "Listening socket failed, result = ", result);
+
+        listen_for_clients();
+
+    }
+
 public:
     void Run(int number_of_threads){
         NUMBER_OF_THREADS = number_of_threads;
@@ -373,40 +490,18 @@ public:
         std::cout << "Time taken by function using " <<NUMBER_OF_THREADS <<" threads: "
                   << duration.count() << " milliseconds" << std::endl;
 
-
-    }
-
-    void TestExecutionTimeDependOnThreads(int min,int max){
-        for(int i = min;i<=max;i++){
-            Run(i);
-        }
-
+        start_server();
 
 
     }
-
-
 };
-
-
 
 
 int main(){
     InvertedIndexServer invertedIndexServer;
-    invertedIndexServer.TestExecutionTimeDependOnThreads(1,20);
-
-    //check for words
-//    std::vector<std::string> words {"hello","finally","probably","myself","honor"};
-//    for(const auto& w :words){
-//        std::cout<<hashTable.Find(w, false);
-//    }
+    invertedIndexServer.Run(6);
 
 
     return 1;
-
-
-
-
-
 
 }
