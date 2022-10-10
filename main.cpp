@@ -15,6 +15,7 @@ const int NUMBER_OF_FILES = 2000;
 
 std::mutex console;
 
+std::vector<std::filesystem::path> files_paths;
 
 class ThreadStorage{
 public:
@@ -47,6 +48,25 @@ private:
 
     };
 
+    void inOrderString(BSTNode* cur,std::string &response,bool indexedView){
+        if(cur == nullptr)
+            return;
+        inOrderString(cur->left,response,indexedView);
+        int ind = cur->data;
+        if (indexedView){
+            response+=std::to_string(ind)+" ";
+        }
+        else{
+            std::filesystem::path cur_path = files_paths[ind];
+            response+= cur_path.parent_path().parent_path().filename().string()+
+                    "/"+cur_path.parent_path().filename().string()+
+                    "/"+cur_path.filename().string() +
+                    "\n";
+        }
+        inOrderString(cur->right,response,indexedView);
+
+    };
+
     BSTNode* insert(BSTNode* cur,int data){
         if(cur==nullptr){
             cur = new BSTNode(data, nullptr, nullptr);
@@ -69,6 +89,13 @@ public:
 
     void InOrderTraversalPrint(){
         inOrder(root);
+    }
+
+    std::string InOrderTraversalString(bool IndexedView){
+        std::string response;
+        inOrderString(root,response,IndexedView);
+        return response;
+
     }
 
     void Insert(int value){
@@ -177,6 +204,7 @@ private:
 
 
 public:
+
     ConcurrentHashTable(int size,float max_fill_factor,int locks_size):
         HashTable(std::vector<LinkedList>(size)),
         SIZE(size),MAX_FILL_FACTOR(max_fill_factor)
@@ -209,9 +237,19 @@ public:
         locks[lock_ind].unlock();
     }
 
-    BSTSet* Find(const std::string& key){
+    std::string Find(const std::string& key, bool indexedView){
+        std::string response;
         int index = eval_hash(key);
-        return HashTable[index].Find(key);
+        auto set = HashTable[index].Find(key);
+        if(set!= nullptr){
+            response += "For word <<" + key+ ">> : \n";
+            response+=set->InOrderTraversalString(indexedView);
+            response += "\n";
+        }
+        else{
+            response += "No word <<" + key +">> in the index table.\n";
+        }
+        return response;
     }
 
     void Print(){
@@ -240,7 +278,7 @@ private:
         p/train/unsup
     };
 
-    std::vector<std::string> files_paths;
+
     ThreadStorage &threadStorage;
 
     void generate_directories(){
@@ -248,16 +286,16 @@ private:
         for (const auto& dir:dir_paths){
             for (const auto & entry : std::filesystem::directory_iterator(dir)){
                 //std::cout<<entry.path().string()<<std::endl;
-                files_paths[i]= entry.path().string();
+                files_paths[i]= entry.path();
                 i++;
             }
         }
         std::cout<<"Directories have been read successfully"<<std::endl;
     }
 
-    static void add_files_to_hashtable(std::vector<std::string> &file_paths,int bd_low,int bd_high){
+    static void add_files_to_hashtable(int bd_low,int bd_high){
         for(int i = bd_low;i<bd_high;i++){
-            std::ifstream f(file_paths[i]);
+            std::ifstream f(files_paths[i]);
             std::stringstream buffer;
             buffer << f.rdbuf();
             std::string word;
@@ -270,7 +308,7 @@ private:
         }
     }
 
-    void apply_function_to_dir_files_parallel(void (*f)(std::vector<std::string>&,int,int)){
+    void apply_function_to_dir_files_parallel(void (*f)(int,int)){
 
         std::vector<int> boundaries;
         int step = NUMBER_OF_FILES/NUMBER_OF_THREADS;
@@ -281,7 +319,6 @@ private:
 
         for(int i = 0;i<NUMBER_OF_THREADS;i++) {
             threadStorage.threads[i] = std::thread(f,
-                                                   std::ref(files_paths),
                                                    boundaries[i],boundaries[i+1]);
         }
 
@@ -297,13 +334,13 @@ private:
 public:
     explicit ParallelFileProcessor(ThreadStorage& threadStorage_):
     threadStorage(threadStorage_){
-        files_paths=std::vector<std::string>(NUMBER_OF_FILES);
+        files_paths=std::vector<std::filesystem::path>(NUMBER_OF_FILES);
         generate_directories();
     };
 
     void print_directories(int number_of_rows){
         int i = 0;
-        for (const std::string& path: files_paths)
+        for (const std::filesystem::path& path: files_paths)
         {
             std::cout << path << std::endl;
             i++;
@@ -326,6 +363,8 @@ public:
 int main(){
     ThreadStorage threadStorage(NUMBER_OF_THREADS);
     ParallelFileProcessor parallelFileProcessor(threadStorage);
+
+    //count time
     auto start = std::chrono::high_resolution_clock::now();
     parallelFileProcessor.CreateInvertedIndex();
     auto stop = std::chrono::high_resolution_clock::now();
@@ -333,17 +372,10 @@ int main(){
     std::vector<std::string> words {"hello","finally","probably","myself","honor"};
     std::cout << "Time taken by function using " <<NUMBER_OF_THREADS <<" threads: "
          << duration.count() << " milliseconds" << std::endl;
+
+    //check for words
     for(const auto& w :words){
-        auto set = hashTable.Find(w);
-        if(set!= nullptr){
-            std::cout<<"For word " << w <<std::endl;
-            set->InOrderTraversalPrint();
-            std::cout<<std::endl;
-        }
-        else{
-            std::cout<<"No word "<<w <<" in a table";
-            std::cout<<std::endl;
-        }
+        std::cout<<hashTable.Find(w, false);
     }
 
 
