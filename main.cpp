@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <iostream>
 #include <vector>
 #include <map>
@@ -9,8 +10,8 @@
 #include <string>
 #include <cmath>
 #include <chrono>
-#include <Windows.h>
 #include <WinSock2.h>
+#include <Windows.h>
 #include <WS2tcpip.h>
 
 const int NUMBER_OF_FILES = 2000;
@@ -371,13 +372,14 @@ private:
     std::string process_request(iasa_request req,Client& client,bool& close_connection){
         if (req.word[0]=='0' && req.word.size()==1){
             close_connection=true;
+            return "";
         }
         else{
             return hashTable.Find(req.word,req.indexedView);
         }
     }
 
-    int speak_client(Client client) {
+    void speak_client(Client client) {
         char recvBuffer[4096];
         bool close_connection = false;
         while (!close_connection) {
@@ -396,7 +398,7 @@ private:
                 std::cout << "Send data back to Client" << client.id << ":\n" << response << std::endl;
                 console.unlock();
                 if (result == SOCKET_ERROR)
-                    return shutdown_services(addrResult, &client.socket,
+                    shutdown_services(addrResult, &client.socket,
                                              "Sending data back failed, result = ", result);
                 if (close_connection) {
                     break;
@@ -405,7 +407,7 @@ private:
         }
     }
 
-    int listen_for_clients() {
+    void listen_for_clients() {
         int i = 0;
 
         while (true) {
@@ -416,7 +418,7 @@ private:
             while (ClientSocket == SOCKET_ERROR)
             {
                 ClientSocket = accept(ListenSocket, nullptr, nullptr);
-                if (ClientSocket == INVALID_SOCKET) return shutdown_services(addrResult, &ListenSocket, "Accepting socket failed, result = ", result);
+                if (ClientSocket == INVALID_SOCKET) shutdown_services(addrResult, &ListenSocket, "Accepting socket failed, result = ", result);
             }
             Client cur_client(ClientSocket, i);
             std::thread th(&InvertedIndexServer::speak_client,this, cur_client);
@@ -430,10 +432,10 @@ private:
     }
 
 
-    int start_server() {
+    void start_server() {
         WSADATA wsaData;
         result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-        if (result != 0) return shutdown_services(addrResult, nullptr, "WSAStartup failed, result = ", result);
+        if (result != 0) shutdown_services(addrResult, nullptr, "WSAStartup failed, result = ", result);
 
         ZeroMemory(&hints, sizeof(hints));
         hints.ai_family = AF_INET;
@@ -442,16 +444,16 @@ private:
         hints.ai_flags = AI_PASSIVE;
 
         result = getaddrinfo(nullptr, "666", &hints, &addrResult);
-        if (result != 0) return shutdown_services(addrResult, nullptr, "getaddrinfo failed, result = ", result);
+        if (result != 0) shutdown_services(addrResult, nullptr, "getaddrinfo failed, result = ", result);
 
         ListenSocket = socket(addrResult->ai_family, addrResult->ai_socktype, addrResult->ai_protocol);
-        if (ListenSocket == INVALID_SOCKET) return shutdown_services(addrResult, &ListenSocket, "Socket creation failed, result = ", result);
+        if (ListenSocket == INVALID_SOCKET) shutdown_services(addrResult, &ListenSocket, "Socket creation failed, result = ", result);
 
         result = bind(ListenSocket, addrResult->ai_addr, (int)addrResult->ai_addrlen);
-        if (result == SOCKET_ERROR) return shutdown_services(addrResult, &ListenSocket, "Binding socket failed, result = ", result);
+        if (result == SOCKET_ERROR) shutdown_services(addrResult, &ListenSocket, "Binding socket failed, result = ", result);
 
         result = listen(ListenSocket, SOMAXCONN);
-        if (result == SOCKET_ERROR) return shutdown_services(addrResult, &ListenSocket, "Listening socket failed, result = ", result);
+        if (result == SOCKET_ERROR) shutdown_services(addrResult, &ListenSocket, "Listening socket failed, result = ", result);
 
         listen_for_clients();
 
@@ -482,5 +484,4 @@ int main(){
     invertedIndexServer.Run(6);
 
     return 1;
-
 }
